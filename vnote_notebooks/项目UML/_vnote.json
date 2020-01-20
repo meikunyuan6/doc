@@ -1,0 +1,19 @@
+{
+    "attachment_folder": "_v_attachments",
+    "created_time": "2019-08-30T17:13:06Z",
+    "files": [
+    ],
+    "image_folder": "",
+    "recycle_bin_folder": "_v_recycle_bin",
+    "sub_directories": [
+        {
+            "name": "518自动测试"
+        },
+        {
+            "name": "Django"
+        }
+    ],
+    "tags": [
+    ],
+    "version": "1"
+}

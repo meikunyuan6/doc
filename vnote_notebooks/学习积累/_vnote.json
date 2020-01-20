@@ -1,0 +1,22 @@
+{
+    "attachment_folder": "_v_attachments",
+    "created_time": "2019-11-23T08:34:49Z",
+    "files": [
+    ],
+    "image_folder": "",
+    "recycle_bin_folder": "_v_recycle_bin",
+    "sub_directories": [
+        {
+            "name": "JAVA"
+        },
+        {
+            "name": "积累"
+        },
+        {
+            "name": "读书笔记"
+        }
+    ],
+    "tags": [
+    ],
+    "version": "1"
+}
