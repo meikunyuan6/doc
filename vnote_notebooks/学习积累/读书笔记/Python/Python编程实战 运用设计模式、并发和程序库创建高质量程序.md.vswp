@@ -1,0 +1,469 @@
+vnote_backup_file_826537664 D:/code/doc/vnote_notebooks/学习积累/读书笔记/Python/Python编程实战 运用设计模式、并发和程序库创建高质量程序.md
+## 1. Python 的创建型设计模式
+> 关乎对象创建方式的设计模式就是“创建型设计模式”。
+> 一般我们都是**调用构造器**来创建对象，但有时候需要以更为灵活的方式来创建对象，而这正是创建型设计模式的用途。
+### 1.1. 抽象工厂模式
+> 抽象工厂模式用来创建复杂的对象，这种对象有许多小对象组成，而这些小对象都属于某个特定的“系列（family）”
+#### 1.1.1. 经典的抽象工厂模式
+```Python
+import os
+import sys
+import tempfile
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "-P": # For regression testing
+        create_diagram(DiagramFactory()).save(sys.stdout)
+        create_diagram(SvgDiagramFactory()).save(sys.stdout)
+        return
+    textFilename = os.path.join(tempfile.gettempdir(), "diagram.txt")
+    svgFilename = os.path.join(tempfile.gettempdir(), "diagram.svg")
+
+    txtDiagram = create_diagram(DiagramFactory())
+    txtDiagram.save(textFilename)
+    print("wrote", textFilename)
+
+    svgDiagram = create_diagram(SvgDiagramFactory())
+    svgDiagram.save(svgFilename)
+    print("wrote", svgFilename)
+
+
+def create_diagram(factory): # 构造器
+    diagram = factory.make_diagram(30, 7)
+    rectangle = factory.make_rectangle(4, 1, 22, 5, "yellow")
+    text = factory.make_text(7, 3, "Abstract Factory")
+    diagram.add(rectangle)
+    diagram.add(text)
+    return diagram
+
+
+class DiagramFactory:
+
+    def make_diagram(self, width, height):
+        return Diagram(width, height)
+
+
+    def make_rectangle(self, x, y, width, height, fill="white",
+            stroke="black"):
+        return Rectangle(x, y, width, height, fill, stroke)
+
+
+    def make_text(self, x, y, text, fontsize=12):
+        return Text(x, y, text, fontsize)
+
+
+
+class SvgDiagramFactory(DiagramFactory):
+
+    def make_diagram(self, width, height):
+        return SvgDiagram(width, height)
+
+
+    def make_rectangle(self, x, y, width, height, fill="white",
+            stroke="black"):
+        return SvgRectangle(x, y, width, height, fill, stroke)
+
+
+    def make_text(self, x, y, text, fontsize=12):
+        return SvgText(x, y, text, fontsize)
+
+
+BLANK = " "
+CORNER = "+"
+HORIZONTAL = "-"
+VERTICAL = "|"
+
+
+class Diagram:
+
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        self.diagram = _create_rectangle(self.width, self.height, BLANK)
+
+
+    def add(self, component):
+        for y, row in enumerate(component.rows):
+            for x, char in enumerate(row):
+                self.diagram[y + component.y][x + component.x] = char
+
+
+    def save(self, filenameOrFile):
+        file = None if isinstance(filenameOrFile, str) else filenameOrFile
+        try:
+            if file is None:
+                file = open(filenameOrFile, "w", encoding="utf-8")
+            for row in self.diagram:
+                print("".join(row), file=file)
+        finally:
+            if isinstance(filenameOrFile, str) and file is not None:
+                file.close()
+
+
+def _create_rectangle(width, height, fill):
+    rows = [[fill for _ in range(width)] for _ in range(height)]
+    for x in range(1, width - 1):
+        rows[0][x] = HORIZONTAL
+        rows[height - 1][x] = HORIZONTAL
+    for y in range(1, height - 1):
+        rows[y][0] = VERTICAL
+        rows[y][width - 1] = VERTICAL
+    for y, x in ((0, 0), (0, width - 1), (height - 1, 0),
+            (height - 1, width -1)):
+        rows[y][x] = CORNER
+    return rows
+
+
+class Rectangle:
+
+    def __init__(self, x, y, width, height, fill, stroke):
+        self.x = x
+        self.y = y
+        self.rows = _create_rectangle(width, height,
+                BLANK if fill == "white" else "%")
+
+
+class Text:
+
+    def __init__(self, x, y, text, fontsize):
+        self.x = x
+        self.y = y
+        self.rows = [list(text)]
+
+
+SVG_START = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+    "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg xmlns="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"
+    width="{pxwidth}px" height="{pxheight}px">"""
+
+SVG_END = "</svg>\n"
+
+SVG_RECTANGLE = """<rect x="{x}" y="{y}" width="{width}" \
+height="{height}" fill="{fill}" stroke="{stroke}"/>"""
+
+SVG_TEXT = """<text x="{x}" y="{y}" text-anchor="left" \
+font-family="sans-serif" font-size="{fontsize}">{text}</text>"""
+
+SVG_SCALE = 20
+
+
+class SvgDiagram:
+
+
+    def __init__(self, width, height):
+        pxwidth = width * SVG_SCALE
+        pxheight = height * SVG_SCALE
+        self.diagram = [SVG_START.format(**locals())]
+        outline = SvgRectangle(0, 0, width, height, "lightgreen", "black")
+        self.diagram.append(outline.svg)
+
+
+    def add(self, component):
+        self.diagram.append(component.svg)
+
+
+    def save(self, filenameOrFile):
+        file = None if isinstance(filenameOrFile, str) else filenameOrFile
+        try:
+            if file is None:
+                file = open(filenameOrFile, "w", encoding="utf-8")
+            file.write("\n".join(self.diagram))
+            file.write("\n" + SVG_END)
+        finally:
+            if isinstance(filenameOrFile, str) and file is not None:
+                file.close()
+
+
+class SvgRectangle:
+
+    def __init__(self, x, y, width, height, fill, stroke):
+        x *= SVG_SCALE
+        y *= SVG_SCALE
+        width *= SVG_SCALE
+        height *= SVG_SCALE
+        self.svg = SVG_RECTANGLE.format(**locals())
+
+
+class SvgText:
+
+    def __init__(self, x, y, text, fontsize):
+        x *= SVG_SCALE
+        y *= SVG_SCALE
+        fontsize *= SVG_SCALE // 10
+        self.svg = SVG_TEXT.format(**locals())
+
+
+if __name__ == "__main__":
+    main()
+```
+#### 1.1.2. Python风格的抽象工厂模式
+```python
+import os
+import sys
+import tempfile
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "-P": # For regression testing
+        create_diagram(DiagramFactory).save(sys.stdout)
+        create_diagram(SvgDiagramFactory).save(sys.stdout)
+        return
+    textFilename = os.path.join(tempfile.gettempdir(), "diagram.txt")
+    svgFilename = os.path.join(tempfile.gettempdir(), "diagram.svg")
+
+    txtDiagram = create_diagram(DiagramFactory)
+    txtDiagram.save(textFilename)
+    print("wrote", textFilename)
+
+    svgDiagram = create_diagram(SvgDiagramFactory)
+    svgDiagram.save(svgFilename)
+    print("wrote", svgFilename)
+
+
+def create_diagram(factory):
+    diagram = factory.make_diagram(30, 7)
+    rectangle = factory.make_rectangle(4, 1, 22, 5, "yellow")
+    text = factory.make_text(7, 3, "Abstract Factory")
+    diagram.add(rectangle)
+    diagram.add(text)
+    return diagram
+
+
+class DiagramFactory:
+
+    @classmethod
+    def make_diagram(Class, width, height):
+        return Class.Diagram(width, height)
+
+
+    @classmethod
+    def make_rectangle(Class, x, y, width, height, fill="white",
+            stroke="black"):
+        return Class.Rectangle(x, y, width, height, fill, stroke)
+
+    @classmethod
+    def make_text(Class, x, y, text, fontsize=12):
+        return Class.Text(x, y, text, fontsize)
+
+
+    BLANK = " "
+    CORNER = "+"
+    HORIZONTAL = "-"
+    VERTICAL = "|"
+
+
+    class Diagram:
+
+        def __init__(self, width, height):
+            self.width = width
+            self.height = height
+            self.diagram = DiagramFactory._create_rectangle(self.width,
+                    self.height, DiagramFactory.BLANK)
+
+
+        def add(self, component):
+            for y, row in enumerate(component.rows):
+                for x, char in enumerate(row):
+                    self.diagram[y + component.y][x + component.x] = char
+
+
+        def save(self, filenameOrFile):
+            file = (None if isinstance(filenameOrFile, str) else
+                    filenameOrFile)
+            try:
+                if file is None:
+                    file = open(filenameOrFile, "w", encoding="utf-8")
+                for row in self.diagram:
+                    print("".join(row), file=file)
+            finally:
+                if isinstance(filenameOrFile, str) and file is not None:
+                    file.close()
+
+
+    class Rectangle:
+
+        def __init__(self, x, y, width, height, fill, stroke):
+            self.x = x
+            self.y = y
+            self.rows = DiagramFactory._create_rectangle(width, height,
+                    DiagramFactory.BLANK if fill == "white" else "%")
+
+
+    class Text:
+
+        def __init__(self, x, y, text, fontsize):
+            self.x = x
+            self.y = y
+            self.rows = [list(text)]
+
+
+    def _create_rectangle(width, height, fill):
+        rows = [[fill for _ in range(width)] for _ in range(height)]
+        for x in range(1, width - 1):
+            rows[0][x] = DiagramFactory.HORIZONTAL
+            rows[height - 1][x] = DiagramFactory.HORIZONTAL
+        for y in range(1, height - 1):
+            rows[y][0] = DiagramFactory.VERTICAL
+            rows[y][width - 1] = DiagramFactory.VERTICAL
+        for y, x in ((0, 0), (0, width - 1), (height - 1, 0),
+                (height - 1, width -1)):
+            rows[y][x] = DiagramFactory.CORNER
+        return rows
+
+
+class SvgDiagramFactory(DiagramFactory):
+
+    # The make_* class methods are inherited
+
+    SVG_START = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+    "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg xmlns="http://www.w3.org/2000/svg"
+    xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"
+    width="{pxwidth}px" height="{pxheight}px">"""
+
+    SVG_END = "</svg>\n"
+
+    SVG_RECTANGLE = """<rect x="{x}" y="{y}" width="{width}" \
+height="{height}" fill="{fill}" stroke="{stroke}"/>"""
+
+    SVG_TEXT = """<text x="{x}" y="{y}" text-anchor="left" \
+font-family="sans-serif" font-size="{fontsize}">{text}</text>"""
+
+    SVG_SCALE = 20
+
+
+    class Diagram:
+
+        def __init__(self, width, height):
+            pxwidth = width * SvgDiagramFactory.SVG_SCALE
+            pxheight = height * SvgDiagramFactory.SVG_SCALE
+            self.diagram = [SvgDiagramFactory.SVG_START.format(**locals())]
+            outline = SvgDiagramFactory.Rectangle(0, 0, width, height,
+                    "lightgreen", "black")
+            self.diagram.append(outline.svg)
+
+
+        def add(self, component):
+            self.diagram.append(component.svg)
+
+
+        def save(self, filenameOrFile):
+            file = (None if isinstance(filenameOrFile, str) else
+                    filenameOrFile)
+            try:
+                if file is None:
+                    file = open(filenameOrFile, "w", encoding="utf-8")
+                file.write("\n".join(self.diagram))
+                file.write("\n" + SvgDiagramFactory.SVG_END)
+            finally:
+                if isinstance(filenameOrFile, str) and file is not None:
+                    file.close()
+
+
+    class Rectangle:
+
+        def __init__(self, x, y, width, height, fill, stroke):
+            x *= SvgDiagramFactory.SVG_SCALE
+            y *= SvgDiagramFactory.SVG_SCALE
+            width *= SvgDiagramFactory.SVG_SCALE
+            height *= SvgDiagramFactory.SVG_SCALE
+            self.svg = SvgDiagramFactory.SVG_RECTANGLE.format(**locals())
+
+
+    class Text:
+
+        def __init__(self, x, y, text, fontsize):
+            x *= SvgDiagramFactory.SVG_SCALE
+            y *= SvgDiagramFactory.SVG_SCALE
+            fontsize *= SvgDiagramFactory.SVG_SCALE // 10
+            self.svg = SvgDiagramFactory.SVG_TEXT.format(**locals())
+
+
+if __name__ == "__main__":
+    main()
+```
+### 1.2. 建造者模式
+### 1.3. 工厂方法模式
+### 1.4. 原型模式
+### 1.5. 单例模式
+## 2. Python的结构型设计模式
+### 2.1. 适配器模式
+### 2.2. 桥接模式
+### 2.3. 组合模式
+#### 2.3.1. 常规的“组合体/非组合体”式层级
+#### 2.3.2. 只用一个类来表示组合体与非组合体
+### 2.4. 修饰器模式
+#### 2.4.1. 函数修饰器与方法修饰器
+#### 2.4.2. 类修饰器
+##### 2.4.2.1. 用类修饰器新增属性
+##### 2.4.2.2. 用类修饰器实现继承
+### 2.5. 外观模式
+#### 2.5.1. 绑定方法与非绑定方法
+### 2.6. 享元模式
+### 2.7. 代理模式
+## 3. Python的行为型设计模式
+### 3.1. 责任链模式
+#### 3.1.1. 用常规方式实现责任链
+#### 3.1.2. 基于协程的责任链
+### 3.2. 命令模式
+### 3.3. 解释器模式
+#### 3.3.1. 用eval()函数求表达式的值
+#### 3.3.2. 用eval()函数执行代码
+#### 3.3.3. 用子进程执行代码
+### 3.4. 迭代器模式
+#### 3.4.1. 通过序列协议实现迭代器
+#### 3.4.2. 通过双参数iter()函数实现迭代器
+#### 3.4.3. 通过迭代器协议实现迭代器
+### 3.5. 中介模式
+#### 3.5.1. 用常规方式实现中介者
+#### 3.5.2. 基于协程的中介者
+### 3.6. 备忘录模式
+### 3.7. 观察者模式
+### 3.8. 状态模式
+#### 3.8.1. 用同一套方法来处理不同的状态
+#### 3.8.2. 用不同的方法来处理不同的状态
+### 3.9. 策略模式
+### 3.10. 模板方法模式
+### 3.11. 访问者模式
+### 3.12. 案例研究：图像处理程序包
+#### 3.12.1. 通用的图像处理模块
+#### 3.12.2. xpm模块概述
+#### 3.12.3. PNG包装器模块
+## 4. Python的高级并发技术
+### 4.1. 计算密集型并发
+#### 4.1.1. 用队列及多进程实现并发
+#### 4.1.2. 用Future及多进程实现并发
+### 4.2. I/O密集型并发
+#### 4.2.1. 用队列及线程实现并发
+#### 4.2.2. 用Future及线程实现并发
+### 4.3. 案例研究：并发式GUI应用程序
+#### 4.3.1. 创建GUI
+#### 4.3.2. 编写与工作线程配套的ImageScale模块
+#### 4.3.3. 在GUI中显示图像处理进度
+#### 4.3.4. 处理GUI程序终止时的相关事宜
+## 5. 扩充Python
+### 5.1. 用ctypes访问C程序库
+### 5.2. Cython的用法
+#### 5.2.1. Cython访问C程序库
+#### 5.2.2. 编写Cython模块以进一步提升程序执行速度
+### 5.3. 案例研究：用Cython优化图像处理程序包
+## 6. Python高级网络编程
+### 6.1. 编写XML-PRC应用程序
+#### 6.1.1. 数据包装器
+#### 6.1.2. 编写XML-PRC服务器
+#### 6.1.3. 编写XML-PRC客户端
+##### 6.1.3.1. 基于控制台的XML-PRC客户端
+##### 6.1.3.2. 带图像界面的XML-PRC客户端
+### 6.2. 编写RPyC应用程序
+#### 6.2.1. 线程安全的数据包装器
+##### 6.2.1.1. 简单的线程安全字典
+##### 6.2.1.2. 继承自ThreadSafeDict的_MeterDict类
+#### 6.2.2. 编写RPyC服务器
+#### 6.2.3. 编写RPyC客户端
+##### 6.2.3.1. 基于控制台的RPyC客户端
+##### 6.2.3.2. 带图形界面的RPyC客户端
+## 7. 用Tkinter开发图形用户界面
+## 8. 用OpenGL绘制3D图形
