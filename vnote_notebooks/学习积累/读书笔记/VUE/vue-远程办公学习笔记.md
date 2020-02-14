@@ -1,6 +1,7 @@
 # 1. Vue框架
 > 2020-2-11 指令学习笔记
-> 2020-2-12 生命周期、组件开发学习笔记
+> 2020-2-12 生命周期、组件化开发学习笔记
+> 2020-2-13 前端常用的模块化开发总结笔记
 ## 1.1. 指令
 
 - 本质就是自定义属性
@@ -739,12 +740,12 @@ var vm = new Vue({
     }
 })
 ```
-###### 1.3.3.1.1.1. v-bind使用修饰符 .sync和.once进行不同方式的绑定
+~~###### 1.3.3.1.1.1. v-bind使用修饰符 .sync和.once进行不同方式的绑定~~
 默认v-bind绑定为数据单项绑定
 * .sync 声明为双向绑定
 * .once 声明为单次绑定
 
-###### 1.3.3.1.1.2. Props数据类型验证
+###### 1.3.3.1.1.1. Props数据类型验证
 `props:{a: Number}` 即验证参数a  需为Number类型
 * 基础类型检测： prop: Number，接受的参数为原生构造器，任何类型均可
 * 参数可以为多种类型： `prop: [Number,String]`
@@ -762,3 +763,242 @@ var vm = new Vue({
      ```
 * 绑定类型：`prop:{twoWay: ture}`, 校验绑定类型，验证失败会抛出一条警告
 * 自定义验证函数： `prop: {validator:function(value) { return value > 0}}`,验证值必须大于0
+### 1.3.4. 组件间通信
+#### 1.3.4.1. 直接访问
+* `this.$parent`：访问父组件实例
+* `this.$children`: 访问子组件实例
+* `this.$root`: 组件所在的根实例
+#### 1.3.4.2. 通过定义ref属性，访问组件实例
+**使用方法：**
+定义ref：`<base-input ref='usernameInput'></base-input>`
+通过ref访问：`this.$refs.usernameInput`
+#### 1.3.4.3. 子组件向父组件传递数据
+* 如何做？
+    * 需要自定义事件完成子组件向父组件的数据传递
+* 自定义事件流程
+    * 在子组件中，通过$emit()来触发事件
+    * 在父组件中，通过v-on来监听子组件事件
+ * **使用方法：**
+ ![](_v_images/20200213154954297_903.png =716x)
+ 
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<body>
+<div id="app">
+  <child-cpn @increment="changeTotal" @decrement="changeTotal"></child-cpn>
+    <h2>点击次数：{{ total }}</h2>
+</div>
+</body>
+<template id="childCpn">
+    <div>
+        <button @click="increment">+1</button>
+        <button @click="decrement">-1</button>
+    </div>
+</template>
+<script>
+    var app1 = new Vue({
+      el: '#app',
+      data: {
+        message: 'Hello Vue!',
+        total: 0
+      },
+        methods: {
+            changeTotal(counter) {
+                this.total = counter
+            }
+        },
+        components: {
+          'child-cpn': {
+              template: '#childCpn',
+              data() {
+                  return {
+                      counter: 0
+                  }
+              },
+              methods: {
+                  increment() {
+                      this.counter++;
+                      this.$emit('increment', this.counter)
+                  },
+                  decrement() {
+                      this.counter--;
+                      this.$emit('decrement', this.counter)
+                  }
+              }
+          }
+        }
+    })
+</script>
+</html>
+```
+### 1.3.5. 组件插槽使用
+这里主要记录了作用域插槽使用
+**使用方法：**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<body>
+<div id="app">
+    <my-cpn>
+        <template v-slot="slotProps">
+            <ul>
+                <li v-for="info in slotProps.data">{{ info }}</li>
+            </ul>
+            <span v-for="info in slotProps.data">{{ info }}</span>
+        </template>
+    </my-cpn>
+</div>
+</body>
+<template id="myCpn">
+    <div>
+        <slot :data="planguages"></slot>
+    </div>
+</template>
+<script>
+    var app1 = new Vue({
+      el: '#app',
+      data: {
+        message: 'Hello Vue!',
+        total: 0
+      },
+        methods: {
+            changeTotal(counter) {
+                this.total = counter
+            }
+        },
+        components: {
+          'my-cpn': {
+              template: '#myCpn',
+              data() {
+                  return {
+                      planguages: [
+                          'Javascripts', 'Python', 'Swift'
+                      ]
+                  }
+              }
+          }
+        }
+    })
+</script>
+</html>
+```
+## 1.4. 常用模块化规范
+* CommonJS
+* AMD
+* CMD
+* ES6的Module
+### 1.4.1. CommonJS
+* CommonJS的导出
+```javascripts
+moule.exports = {
+    flag: true,
+    test(a, b) {
+        return a + b
+    },
+    demo(a, b) {
+        return a * b
+    }
+}
+```
+
+* CommonJS的导入
+```javascripts
+// CommonJS模块
+let { test, demo, flag } = require(moduleA);
+//等同于
+let _mA = require('moduleA');
+let test = _mA.test;
+let demo = _mA.demo;
+let flag = _mA.flag;
+```
+* export基本使用
+![](_v_images/20200213165235164_4555.png =307x)
+//另一种写法
+![](_v_images/20200213165314116_7187.png =323x)
+
+* 导出函数或类
+    * 方式一
+    ![](_v_images/20200213165513596_27123.png =434x)
+    * 方式二
+    ![](_v_images/20200213165528508_22103.png =445x)
+
+* export default
+>export default在同一个模块中，不允许同时存在多个
+**实例方法：**
+![](_v_images/20200213170807857_31375.png =357x)
+![](_v_images/20200213170822447_20332.png =357x)
+
+* import使用
+>使用import命令可以用加载对应的模块
+
+**使用方法：**
+首先，我们需要在HTML代码中引入两个js文件，并且类型需要设置为module
+![](_v_images/20200213171503767_21304.png =537x)
+然后使用import导入模块的内容
+![](_v_images/20200213171602168_11231.png =466x)
+
+通过`*`可以导入模块中所有的export变量
+但是通常情况下我们需要给*起一个别名，方便后续的使用
+![](_v_images/20200213171700645_29747.png =471x)
+## 1.5. Vue CLI
+>CLI 全称 Command-Line Interface ，命令行界面 俗称：脚手架
+>Vue CLI是一个官方发布的 vue.js项目脚手架
+>使用vue-cli可以快速搭建Vue开发环境以及对应的webpack配置
+* Vue脚手架安装
+    * npm install -g @vue/cli
+### 1.5.1. npm
+>npm 全称Node Package Manager
+>是一个NodeJS包管理和分发工具，已经成为了非官方的发布Node（包）模块的标准
+### 1.5.2. webpack
+>Vue.js官方脚手架工具使用了webpack模板
+* 全局安装
+    * npm install webpack -g
+## 1.6. 异步编程解决方案-Promise
+```javascripts
+new Promise((resolve, reject) => {
+    ...
+}).then(data =>{
+    ...
+}).catch(error =>{
+    ...
+})
+```
+* 异步事件解析
+    * new Promise很明显是创建一个Promise对象
+    * 小括号中((resolve, reject) => {})也是一个箭头(=>)函数。
+    * resolve和reject它们两个也是函数，通常情况下，我们会根据请求数据的成功和失败来决定调用哪一个。
+        * 如果是成功的，那么通常我们会调用resolve(messsage)，这个时候，我们后续的then会被回调。
+        * 如果是失败的，那么通常我们会调用reject(error)，这个时候，我们后续的catch会被回调。
+
+![](_v_images/20200214154453185_26892.png =681x)
+* Promise链式调用
+![](_v_images/20200214154625546_4853.png =681x)
+* Promise 链式调用简写
+![](_v_images/20200214154738297_31686.png =681x)
+## 1.7. axiox请求
+* 支持的请求方式
+    * axios(config)
+    * axios.request(config)
+    * axios.get(url[, config])
+    * axios.delete(url[, config])
+    * axios.head(url[, config])
+    * axios.post(url[, data[, config]])
+    * axios.put(url[, data[, config]])
+    * axios.patch(url[, data[, config]])
+### 1.7.1. 发送get请求
+![](_v_images/20200214155538116_18771.png =681x)
+### 1.7.2. 发送并发请求
+* 使用axios.all，可以放入多个请求的数组
+* axios.all([])返回的结果是一个数组，使用axios.spread可将数组[res1, res2]展开
+![](_v_images/20200214155751338_16737.png =681x)
