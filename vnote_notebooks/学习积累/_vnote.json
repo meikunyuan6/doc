@@ -11,6 +11,9 @@
         },
         {
             "name": "Git 操作"
+        },
+        {
+            "name": "vscode操作"
         }
     ],
     "version": "1"
